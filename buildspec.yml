@@ -1,0 +1,49 @@
+---
+version: 0.2
+
+env:
+  parameter-store:
+    NEXT_PUBLIC_API_URL: NEXT_PUBLIC_API_URL
+    MONGODB_URI: MONGODB_URI
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 18
+    commands:
+      - echo 'about to call dockerd'
+      - nohup /usr/local/bin/dockerd --host=unix:///var/run/docker.sock --host=tcp://127.0.0.1:2375 --storage-driver=overlay2&
+      - timeout 15 sh -c "until docker info; do echo .; sleep 1; done"
+      - curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.9/2024-01-04/bin/linux/amd64/kubectl
+      - curl -O https://s3.us-west-2.amazonaws.com/amazon-eks/1.27.9/2024-01-04/bin/linux/amd64/kubectl.sha256
+      - sha256sum -c kubectl.sha256
+      - chmod +x ./kubectl
+      - export PATH=$PWD/:$PATH
+      - echo 'export PATH=$PWD/:$PATH' >> $HOME/.bashrc
+      - kubectl version --short --client
+  pre_build:
+    commands:
+      - TAG="$REPOSITORY_NAME.$REPOSITORY_BRANCH.$(date +%Y-%m-%d.%H.%M.%S).$(echo $CODEBUILD_RESOLVED_SOURCE_VERSION | head -c 8)"
+      - echo "Replacing CONTAINER_IMAGE with $REPOSITORY_URI:$TAG in deployment.yml"
+      - sed -i 's@CONTAINER_IMAGE@'"$REPOSITORY_URI:$TAG"'@' deployment.yml
+      - $(aws ecr get-login-password --region $AWS_DEFAULT_REGION | docker login --username AWS --password-stdin $REPOSITORY_URI)
+      - export KUBECONFIG=$HOME/.kube/config
+      - echo `ls -l`
+      - npm install
+      - echo "NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}" >> .env
+      - echo "MONGODB_URI=${MONGODB_URI}" >> .env
+  build:
+    commands:
+      - npm run build
+      - docker build --tag $REPOSITORY_URI:$TAG .
+
+  post_build:
+    commands:
+      - docker push $REPOSITORY_URI:$TAG
+      - echo $EKS_CLUSTER_NAME
+      - echo $EKS_KUBECTL_ROLE_ARN
+      - aws eks update-kubeconfig --name $EKS_CLUSTER_NAME --role-arn $EKS_KUBECTL_ROLE_ARN
+      - kubectl apply -f deployment.yml
+      - printf '[{"name":"nextjs_app","imageUri":"%s"}]' $REPOSITORY_URI:$TAG > build.json
+artifacts:
+  files: build.json

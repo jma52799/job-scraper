@@ -39,4 +39,3 @@ next-env.d.ts
 trust.json
 cb-iam-role-policy.json
 ci-cd-codepipeline.cfn.yml
-buildspec.yml
