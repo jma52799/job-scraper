@@ -38,3 +38,5 @@ next-env.d.ts
 # custom files
 trust.json
 cb-iam-role-policy.json
+ci-cd-codepipeline.cfn.yml
+buildspec.yml

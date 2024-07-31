@@ -7,3 +7,7 @@ README.md
 !.next/static
 !.next/standalone
 .git
+trust.json
+buildspec.yml
+cb-iam-role-policy.json
+ci-cd-codepipeline.cfn.yml
