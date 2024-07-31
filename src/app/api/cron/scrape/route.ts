@@ -4,7 +4,7 @@ import { connectToDatabase } from "@/lib/mongoose";
 import { scrapeJobs } from "@/lib/server-utils";
 import Job from  "@/lib/models/job.model";
 import { NextResponse } from "next/server";
-import { baseURL } from "@/lib/constants";
+import { baseURL, NO_CACHE_HEADERS } from "@/lib/constants";
 
 export async function GET() {
     try {
@@ -30,5 +30,8 @@ export async function GET() {
         throw new Error(error.message);
     }
     
-    return NextResponse.json({ message: "Scrape Successed" });
+    return NextResponse.json(
+        { message: "Scrape Successed" },
+        { headers: NO_CACHE_HEADERS }
+    );
 }
